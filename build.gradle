@@ -24,9 +24,6 @@ processResources {
     inputs.property "version", project.version
     filesMatching("fabric.mod.json") { expand "version": project.version }
 }
-filesMatching("maza-addon.mixins.json") {
-        expand "version": project.version
-}
 
 tasks.withType(JavaCompile).configureEach { it.options.release = 21 }
 
