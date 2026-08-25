@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "maza-addon",
+  "version": "${version}",
+  "name": "Maza Addon",
+  "description": "Debris finder with palette bypass",
+  "authors": ["masqqg"],
+  "environment": "client",
+  "entrypoints": { "meteor": ["com.maza.MazaAddon"] },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "1.21.11",
+    "meteor-client": "*"
+  }
+}
