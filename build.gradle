@@ -18,6 +18,7 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "meteordevelopment:orbit:0.2.4"
     modImplementation files('libs/meteorclient.jar')
+modImplementation "net.fabricmc:sponge-mixin:0.15.2+mixin.0.8.7"
 }
 
 processResources {
