@@ -53,7 +53,7 @@ public class DebrisFinder extends Module {
     // chunk yüklendiğinde tara
     @EventHandler
     private void onChunkData(ChunkDataEvent event) {
-        WorldChunk chunk = event.getChunk();
+        WorldChunk chunk = event.chunk();
         if (chunk == null || mc.world == null) return;
 
         ChunkPos pos = chunk.getPos();
