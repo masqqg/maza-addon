@@ -6,9 +6,9 @@ import meteordevelopment.meteorclient.renderer.ShapeMode;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
-import meteordevelopment.orbit.EventHandler;
+import meteordevelopment.meteorclient.utils.event.EventHandler;
 import net.minecraft.block.Blocks;
-import net.minecraft.network.packet.s2c.play.ChunkDataAndUpdateLightS2CPacket;
+import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.WorldChunk;
@@ -53,7 +53,7 @@ public class DebrisFinder extends Module {
 
     @EventHandler
     private void onPacket(PacketEvent.Receive event) {
-        if (!(event.packet instanceof ChunkDataAndUpdateLightS2CPacket packet)) return;
+        if (!(event.packet instanceof ChunkDataS2CPacket packet)) return;
 
         ChunkPos pos = new ChunkPos(packet.getChunkX(), packet.getChunkZ());
         List<BlockPos> found = new ArrayList<>();
@@ -71,7 +71,7 @@ public class DebrisFinder extends Module {
         }
     }
 
-    private void parsePalette(ChunkDataAndUpdateLightS2CPacket packet, ChunkPos pos, List<BlockPos> out) {
+    private void parsePalette(ChunkDataS2CPacket packet, ChunkPos pos, List<BlockPos> out) {
         try {
             var chunkData = packet.getChunkData();
             for (int y = -4; y < 20; y++) {
@@ -130,4 +130,4 @@ public class DebrisFinder extends Module {
             }
         }
     }
-              }
+    }
