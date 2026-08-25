@@ -53,7 +53,7 @@ public class DebrisFinder extends Module {
     // chunk yüklendiğinde tara
     @EventHandler
     private void onChunkData(ChunkDataEvent event) {
-        WorldChunk chunk = event.chunk;
+        WorldChunk chunk = event.getChunk();
         if (chunk == null || mc.world == null) return;
 
         ChunkPos pos = chunk.getPos();
@@ -85,9 +85,18 @@ public class DebrisFinder extends Module {
     private void onRender(Render3DEvent event) {
         if (mc.player == null) return;
 
+        double px = mc.player.getX();
+        double py = mc.player.getY();
+        double pz = mc.player.getZ();
+        double rangeSq = range.get() * range.get();
+
         for (BlockPos pos : debris) {
-            // menzil kontrolü
-            if (mc.player.getPos().squaredDistanceTo(pos.toCenterPos()) > range.get() * range.get()) continue;
+            double dx = pos.getX() + 0.5 - px;
+            double dy = pos.getY() + 0.5 - py;
+            double dz = pos.getZ() + 0.5 - pz;
+            double distSq = dx * dx + dy * dy + dz * dz;
+
+            if (distSq > rangeSq) continue;
 
             event.renderer.box(
                 pos.getX(), pos.getY(), pos.getZ(),
@@ -96,4 +105,4 @@ public class DebrisFinder extends Module {
             );
         }
     }
-}
+            }
