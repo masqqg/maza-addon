@@ -7,6 +7,7 @@
   "authors": ["masqqg"],
   "environment": "client",
   "entrypoints": { "meteor": ["com.maza.MazaAddon"] },
+  "mixins": ["maza-addon.mixins.json"],
   "depends": {
     "fabricloader": ">=0.16.0",
     "minecraft": "1.21.11",
