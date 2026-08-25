@@ -1,6 +1,5 @@
 package com.maza.modules;
 
-import meteordevelopment.meteorclient.events.world.ChunkDataEvent;
 import meteordevelopment.meteorclient.events.world.BlockUpdateEvent;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
@@ -9,9 +8,9 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Blocks;
+import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.chunk.WorldChunk;
 import com.maza.MazaAddon;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,10 +33,10 @@ public class DebrisFinder extends Module {
     private final Setting<SettingColor> lineColor = sgRender.add(new ColorSetting.Builder()
         .name("line-color").defaultValue(new SettingColor(255, 165, 0, 255)).build());
 
-    private final Set<BlockPos> debris = ConcurrentHashMap.newKeySet();
+    private static final Set<BlockPos> debris = ConcurrentHashMap.newKeySet();
 
     public DebrisFinder() {
-        super(MazaAddon.CATEGORY, "debris-esp", "ESP for ancient debris (netherite)");
+        super(MazaAddon.CATEGORY, "debris-esp", "ESP for ancient debris (netherite) with raw packet bypass");
     }
 
     @Override
@@ -50,24 +49,41 @@ public class DebrisFinder extends Module {
         debris.clear();
     }
 
-    // chunk yüklendiğinde tara
-    @EventHandler
-    private void onChunkData(ChunkDataEvent event) {
-        WorldChunk chunk = event.chunk();
-        if (chunk == null || mc.world == null) return;
+    // mixin'den çağrılır, packet decode edilmeden ÖNCE
+    public static void onRawChunkPacket(ChunkDataS2CPacket packet) {
+        try {
+            ChunkPos pos = new ChunkPos(packet.getChunkX(), packet.getChunkZ());
+            var chunkData = packet.getChunkData();
+            
+            // raw buffer'dan section'ları oku, anti-cheat henüz dokunmadı
+            for (int y = -4; y < 20; y++) {
+                var section = chunkData.getSection(y);
+                if (section == null || section.isEmpty()) continue;
 
-        ChunkPos pos = chunk.getPos();
+                var container = section.getBlockStateContainer();
+                var palette = container.getPalette();
+                int debrisId = -1;
 
-        for (int y = -64; y < 128; y++) {
-            for (int x = 0; x < 16; x++) {
-                for (int z = 0; z < 16; z++) {
-                    BlockPos p = new BlockPos(pos.x * 16 + x, y, pos.z * 16 + z);
-                    if (chunk.getBlockState(p).getBlock() == Blocks.ANCIENT_DEBRIS) {
-                        debris.add(p);
+                for (int i = 0; i < palette.getSize(); i++) {
+                    if (palette.get(i).getBlock() == Blocks.ANCIENT_DEBRIS) {
+                        debrisId = i;
+                        break;
+                    }
+                }
+                if (debrisId == -1) continue;
+
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        for (int localY = 0; localY < 16; localY++) {
+                            if (container.get(x, localY, z) == debrisId) {
+                                int worldY = y * 16 + localY;
+                                debris.add(new BlockPos(pos.x * 16 + x, worldY, pos.z * 16 + z));
+                            }
+                        }
                     }
                 }
             }
-        }
+        } catch (Exception ignored) {}
     }
 
     // blok güncellendiğinde yakala (kırılma/konma)
@@ -105,4 +121,4 @@ public class DebrisFinder extends Module {
             );
         }
     }
-            }
+}
