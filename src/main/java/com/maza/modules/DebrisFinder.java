@@ -3,7 +3,9 @@ package com.maza.modules;
 import com.maza.MazaAddon;
 import com.maza.utils.DebrisScanner;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
+import meteordevelopment.meteorclient.events.world.BlockUpdateEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
+import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.ColorSetting;
 import meteordevelopment.meteorclient.settings.EnumSetting;
 import meteordevelopment.meteorclient.settings.IntSetting;
@@ -12,9 +14,8 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
+import net.minecraft.block.Blocks;
 import net.minecraft.util.math.BlockPos;
-
-import java.util.Set;
 
 public class DebrisFinder extends Module {
 
@@ -33,6 +34,14 @@ public class DebrisFinder extends Module {
         .name("max-y").description("Maximum Y level")
         .defaultValue(40).min(-64).max(320).build());
 
+    private final Setting<Boolean> verifyMode = sgGeneral.add(new BoolSetting.Builder()
+        .name("verify-mode").description("Only show debris near you (server tells truth nearby)")
+        .defaultValue(false).build());
+
+    private final Setting<Integer> verifyRadius = sgGeneral.add(new IntSetting.Builder()
+        .name("verify-radius").description("Radius for verify mode")
+        .defaultValue(24).min(8).max(64).visible(verifyMode::get).build());
+
     private final Setting<ShapeMode> shapeMode = sgRender.add(new EnumSetting.Builder<ShapeMode>()
         .name("shape-mode").defaultValue(ShapeMode.Both).build());
 
@@ -43,7 +52,18 @@ public class DebrisFinder extends Module {
         .name("line-color").defaultValue(new SettingColor(255, 165, 0, 255)).build());
 
     public DebrisFinder() {
-        super(MazaAddon.CATEGORY, "debris-finder", "ESP for ancient debris y -11 to 40");
+        super(MazaAddon.CATEGORY, "debris-finder", "ESP for ancient debris with verify mode");
+    }
+
+    // blok güncellenince: sahte temizlendiyse kutu zaten kaybolur,
+    // gerçek debris ortaya çıktıysa anında yakala
+    @EventHandler
+    private void onBlockUpdate(BlockUpdateEvent event) {
+        if (mc.world == null) return;
+        if (event.newState.getBlock() == Blocks.ANCIENT_DEBRIS) {
+            double d = DebrisScanner.distanceToPlayer(event.pos);
+            if (d < 48) info("Debris revealed at %s (%.0f blocks)", event.pos.toShortString(), d);
+        }
     }
 
     @EventHandler
@@ -54,6 +74,8 @@ public class DebrisFinder extends Module {
         double py = mc.player.getY();
         double pz = mc.player.getZ();
         double rangeSq = (double) range.get() * range.get();
+        double verSq = (double) verifyRadius.get() * verifyRadius.get();
+        boolean verify = verifyMode.get();
 
         int pcx = (int) Math.floor(px / 16);
         int pcz = (int) Math.floor(pz / 16);
@@ -66,13 +88,16 @@ public class DebrisFinder extends Module {
                 var chunk = mc.world.getChunk(cx, cz);
                 if (chunk == null || chunk.isEmpty()) continue;
 
-                Set<BlockPos> found = DebrisScanner.scanChunk(chunk, yMin, yMax);
+                var found = DebrisScanner.scanChunk(chunk, yMin, yMax);
 
                 for (BlockPos p : found) {
                     double dx = p.getX() + 0.5 - px;
                     double dy = p.getY() + 0.5 - py;
                     double dz = p.getZ() + 0.5 - pz;
-                    if (dx * dx + dy * dy + dz * dz > rangeSq) continue;
+                    double distSq = dx * dx + dy * dy + dz * dz;
+
+                    if (distSq > rangeSq) continue;
+                    if (verify && distSq > verSq) continue;
 
                     event.renderer.box(
                         p.getX(), p.getY(), p.getZ(),
