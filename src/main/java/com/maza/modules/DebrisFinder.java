@@ -1,6 +1,7 @@
 package com.maza.modules;
 
 import com.maza.MazaAddon;
+import com.maza.utils.DebrisScanner;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
 import meteordevelopment.meteorclient.settings.ColorSetting;
@@ -11,8 +12,9 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Blocks;
 import net.minecraft.util.math.BlockPos;
+
+import java.util.Set;
 
 public class DebrisFinder extends Module {
 
@@ -64,25 +66,20 @@ public class DebrisFinder extends Module {
                 var chunk = mc.world.getChunk(cx, cz);
                 if (chunk == null || chunk.isEmpty()) continue;
 
-                for (int y = yMin; y <= yMax; y++) {
-                    for (int x = 0; x < 16; x++) {
-                        for (int z = 0; z < 16; z++) {
-                            BlockPos p = new BlockPos(cx * 16 + x, y, cz * 16 + z);
-                            if (chunk.getBlockState(p).getBlock() != Blocks.ANCIENT_DEBRIS) continue;
+                Set<BlockPos> found = DebrisScanner.scanChunk(chunk, yMin, yMax);
 
-                            double dx = p.getX() + 0.5 - px;
-                            double dy = p.getY() + 0.5 - py;
-                            double dz = p.getZ() + 0.5 - pz;
-                            if (dx * dx + dy * dy + dz * dz > rangeSq) continue;
+                for (BlockPos p : found) {
+                    double dx = p.getX() + 0.5 - px;
+                    double dy = p.getY() + 0.5 - py;
+                    double dz = p.getZ() + 0.5 - pz;
+                    if (dx * dx + dy * dy + dz * dz > rangeSq) continue;
 
-                            event.renderer.box(
-                                p.getX(), p.getY(), p.getZ(),
-                                p.getX() + 1, p.getY() + 1, p.getZ() + 1,
-                                sideColor.get(), lineColor.get(), shapeMode.get(), 0);
-                        }
-                    }
+                    event.renderer.box(
+                        p.getX(), p.getY(), p.getZ(),
+                        p.getX() + 1, p.getY() + 1, p.getZ() + 1,
+                        sideColor.get(), lineColor.get(), shapeMode.get(), 0);
                 }
             }
         }
     }
-                                }
+}
