@@ -3,18 +3,16 @@ package com.maza.modules;
 import com.maza.MazaAddon;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
-import meteordevelopment.meteorclient.settings.*;
+import meteordevelopment.meteorclient.settings.ColorSetting;
+import meteordevelopment.meteorclient.settings.EnumSetting;
+import meteordevelopment.meteorclient.settings.IntSetting;
+import meteordevelopment.meteorclient.settings.Setting;
+import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Blocks;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class DebrisFinder extends Module {
 
@@ -25,9 +23,13 @@ public class DebrisFinder extends Module {
         .name("range").description("Render range in blocks")
         .defaultValue(128).min(16).max(256).build());
 
-    private final Setting<Boolean> debug = sgGeneral.add(new BoolSetting.Builder()
-        .name("debug").description("Print debug info")
-        .defaultValue(false).build());
+    private final Setting<Integer> minY = sgGeneral.add(new IntSetting.Builder()
+        .name("min-y").description("Minimum Y level")
+        .defaultValue(-11).min(-64).max(320).build());
+
+    private final Setting<Integer> maxY = sgGeneral.add(new IntSetting.Builder()
+        .name("max-y").description("Maximum Y level")
+        .defaultValue(40).min(-64).max(320).build());
 
     private final Setting<ShapeMode> shapeMode = sgRender.add(new EnumSetting.Builder<ShapeMode>()
         .name("shape-mode").defaultValue(ShapeMode.Both).build());
@@ -38,61 +40,10 @@ public class DebrisFinder extends Module {
     private final Setting<SettingColor> lineColor = sgRender.add(new ColorSetting.Builder()
         .name("line-color").defaultValue(new SettingColor(255, 165, 0, 255)).build());
 
-    private static final Set<BlockPos> debris = ConcurrentHashMap.newKeySet();
-    private static DebrisFinder instance;
-
     public DebrisFinder() {
-        super(MazaAddon.CATEGORY, "debris-finder", "Finds ancient debris via palette bypass");
-        instance = this;
+        super(MazaAddon.CATEGORY, "debris-finder", "ESP for ancient debris y -11 to 40");
     }
 
-    @Override
-    public void onActivate() {
-        debris.clear();
-    }
-
-    @Override
-    public void onDeactivate() {
-        debris.clear();
-    }
-
-    // mixin'den çağrılır, raw packet data'sı
-    public static void onRawChunkData(ChunkPos pos, byte[] data) {
-        if (instance == null || !instance.isActive()) return;
-        
-        try {
-            // debris block state ID'sini bul (vanilla: 21474 ama değişebilir)
-            // basit yaklaşım: raw byte'larda belirli pattern'leri ara
-            // anti-xray palette'yi spooflamıyorsa, debris ID buffer'da olur
-            
-            ByteBuffer buf = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
-            
-            // chunk data format karmaşık, basit tarama yap
-            // debris ID'si genelde küçük bir sayı, varint olarak encode edilir
-            // bu yöntem %100 doğru değil ama anti-xray bypass için deneme
-            
-            int found = 0;
-            for (int i = 0; i < data.length - 4; i++) {
-                // potansiyel debris ID (basit heuristic)
-                int val = data[i] & 0xFF;
-                if (val > 0 && val < 255) {
-                    // bu çok basit, gerçek implementation daha karmaşık
-                    // şimdilik placeholder
-                }
-            }
-            
-            if (instance.debug.get() && found > 0) {
-                instance.info("Chunk %s | Raw scan: %d potential", pos, found);
-            }
-            
-        } catch (Exception e) {
-            if (instance != null && instance.debug.get()) {
-                instance.info("Raw parse error: %s", e.getMessage());
-            }
-        }
-    }
-
-    // fallback: world state'ten oku (anti-xray yoksa çalışır)
     @EventHandler
     private void onRender(Render3DEvent event) {
         if (mc.player == null || mc.world == null) return;
@@ -102,6 +53,36 @@ public class DebrisFinder extends Module {
         double pz = mc.player.getZ();
         double rangeSq = (double) range.get() * range.get();
 
-        int playerChunkX = (int) Math.floor(px / 16);
-        int playerChunkZ = (int) Math.floor(pz / 16);
-        int chunkRange = Math.max(1,
+        int pcx = (int) Math.floor(px / 16);
+        int pcz = (int) Math.floor(pz / 16);
+        int cr = Math.max(1, range.get() / 16);
+        int yMin = minY.get();
+        int yMax = maxY.get();
+
+        for (int cx = pcx - cr; cx <= pcx + cr; cx++) {
+            for (int cz = pcz - cr; cz <= pcz + cr; cz++) {
+                var chunk = mc.world.getChunk(cx, cz);
+                if (chunk == null || chunk.isEmpty()) continue;
+
+                for (int y = yMin; y <= yMax; y++) {
+                    for (int x = 0; x < 16; x++) {
+                        for (int z = 0; z < 16; z++) {
+                            BlockPos p = new BlockPos(cx * 16 + x, y, cz * 16 + z);
+                            if (chunk.getBlockState(p).getBlock() != Blocks.ANCIENT_DEBRIS) continue;
+
+                            double dx = p.getX() + 0.5 - px;
+                            double dy = p.getY() + 0.5 - py;
+                            double dz = p.getZ() + 0.5 - pz;
+                            if (dx * dx + dy * dy + dz * dz > rangeSq) continue;
+
+                            event.renderer.box(
+                                p.getX(), p.getY(), p.getZ(),
+                                p.getX() + 1, p.getY() + 1, p.getZ() + 1,
+                                sideColor.get(), lineColor.get(), shapeMode.get(), 0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+                                }
