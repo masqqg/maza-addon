@@ -2,9 +2,7 @@
   "required": true,
   "package": "com.maza.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": [
-    "ChunkDataPacketMixin"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   }
